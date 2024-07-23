@@ -18,6 +18,6 @@ const UserSchema: Schema<IUser> = new Schema({
   level: { type: Number, enum: [1, 2, 3, 4, 5], required: true },
 });
 
-const UserModel: Model<IUser> = models.User ?? model<IUser>("User", UserSchema);
+const User: Model<IUser> = models.User ?? model<IUser>("User", UserSchema);
 
-export default UserModel;
+export default User;
