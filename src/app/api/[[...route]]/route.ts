@@ -34,6 +34,24 @@ const createUserSchema = z.object({
     .max(5, "the max level is 5"),
 });
 
+const updateUserSchema = z.object({
+  name: z
+    .string()
+    .min(2, "the name must be longer then 2 characters")
+    .max(50, "the name must be shorter then 50 characters")
+    .optional(),
+  email: z.string().email().optional(),
+  password: z
+    .string()
+    .min(8, "the password must be longer then 8 characters")
+    .optional(),
+  level: z
+    .number()
+    .nonnegative("the level cannot be negative")
+    .max(5, "the max level is 5")
+    .optional(),
+});
+
 app
   .post("/login", zValidator("json", loginSchema), async (c) => {
     const { email, password } = c.req.valid("json");
@@ -77,7 +95,7 @@ app
     const userId = c.req.param("id");
 
     try {
-      const user = await User.findById({ id: userId });
+      const user = await User.findOne({ id: userId });
 
       if (!user) {
         return c.json({ message: "User not found" }, 404);
@@ -132,17 +150,87 @@ app
       );
     }
   })
-  .put("/users/:id", (c) => {
+  .put("/users/:id", zValidator("json", updateUserSchema), async (c) => {
     const id = c.req.param("id");
-    return c.json({
-      message: `update user ${id}`,
-    });
+    const { name, email, level, password } = c.req.valid("json");
+
+    try {
+      const updatedUser = await User.findByIdAndUpdate(
+        id,
+        { name, email, level, password },
+        {
+          new: true,
+        },
+      );
+      return c.json({
+        success: true,
+        data: updatedUser,
+      });
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        return c.json(
+          {
+            success: false,
+            data: {
+              message: error.message,
+            },
+          },
+          500,
+        );
+      }
+      return c.json(
+        {
+          success: false,
+          data: {
+            message: "An unknown error occurred",
+          },
+        },
+        500,
+      );
+    }
   })
-  .delete("/users/:id", (c) => {
+  .delete("/users/:id", async (c) => {
     const id = c.req.param("id");
-    return c.json({
-      message: `delete user ${id}`,
-    });
+
+    try {
+      const deletedUser = await User.findOneAndDelete({ id });
+      if (!deletedUser) {
+        return c.json(
+          {
+            success: false,
+            data: {
+              message: "User not found",
+            },
+          },
+          404,
+        );
+      }
+      return c.json({
+        success: true,
+        data: deletedUser,
+      });
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        return c.json(
+          {
+            success: false,
+            data: {
+              message: error.message,
+            },
+          },
+          500,
+        );
+      }
+      return c.json(
+        {
+          success: false,
+          data: {
+            message: "An unknown error occurred",
+          },
+        },
+        500,
+      );
+    }
   })
   .get("/users/report", (c) => {
     return c.json({

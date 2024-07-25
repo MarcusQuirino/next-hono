@@ -1,1 +1,9 @@
-PUT http://localhost:3000/api/users/1
+PUT http://localhost:3000/api/users/4c686fea-719d-4213-9785-65018256be4c
+content-type: application/json
+
+{
+  "name": "test",
+  "email": "foo@test.com",
+  "password": "11111111111111",
+  "level": 4
+}

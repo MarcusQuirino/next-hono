@@ -1,1 +1,1 @@
-DELETE http://localhost:3000/api/login
+DELETE http://localhost:3000/api/users/
