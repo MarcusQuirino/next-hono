@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
@@ -10,11 +11,19 @@ import User from "@/models/User";
 import { v4 as uuidv4 } from "uuid";
 import bcrypt from "bcrypt";
 import { env } from "@/env";
-import { sign } from "hono/jwt";
+import { sign, jwt } from "hono/jwt";
+import { Parser } from "json2csv";
 
 await connectDB();
 
-const app = new Hono().basePath("/api");
+type Variables = {
+  id: string;
+  name: string;
+  level: 1 | 2 | 3 | 4 | 5;
+  exp: number;
+};
+
+const app = new Hono<{ Variables: Variables }>().basePath("/api");
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -91,6 +100,64 @@ app
       return c.json({ message: "An unknown error occurred" }, 500);
     }
   })
+  .get(
+    "/users/report",
+    jwt({
+      secret: env.JWT_SECRET,
+    }),
+    async (c) => {
+      const payload = c.get("jwtPayload") as Variables;
+
+      if (payload.level <= 4) {
+        return c.json({ message: "user level must be grater than 4" }, 401);
+      }
+
+      try {
+        const users = await User.find({});
+        console.log(users);
+
+        const fields = ["id", "name", "email", "password", "level"];
+        const json2csvParser = new Parser({ fields });
+        const csv = json2csvParser.parse(users);
+
+        const buffer = Buffer.from(csv, "utf-8");
+
+        const arrayBuffer = buffer.buffer.slice(
+          buffer.byteOffset,
+          buffer.byteOffset + buffer.byteLength,
+        );
+
+        c.header("Content-Type", "text/csv");
+        c.header(
+          "Content-Disposition",
+          'attachment; filename="users_report.csv"',
+        );
+
+        return c.body(arrayBuffer);
+      } catch (error: unknown) {
+        if (error instanceof Error) {
+          return c.json(
+            {
+              success: false,
+              data: {
+                message: error.message,
+              },
+            },
+            500,
+          );
+        }
+        return c.json(
+          {
+            success: false,
+            data: {
+              message: "An unknown error occurred",
+            },
+          },
+          500,
+        );
+      }
+    },
+  )
   .get("/users/:id", async (c) => {
     const userId = c.req.param("id");
 
@@ -155,8 +222,8 @@ app
     const { name, email, level, password } = c.req.valid("json");
 
     try {
-      const updatedUser = await User.findByIdAndUpdate(
-        id,
+      const updatedUser = await User.findOneAndUpdate(
+        { id },
         { name, email, level, password },
         {
           new: true,
@@ -231,11 +298,6 @@ app
         500,
       );
     }
-  })
-  .get("/users/report", (c) => {
-    return c.json({
-      message: "report",
-    });
   });
 
 export const GET = handle(app);
